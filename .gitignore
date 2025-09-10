@@ -1,0 +1,6 @@
+# Binários
+*.o
+*.out
+*.exe
+.editorconfig
+regressao_logistica
