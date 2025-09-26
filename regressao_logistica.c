@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sys/time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -6,7 +7,11 @@
 #define N 900
 #define P 12
 #define Nnew 70
-void iniciar_dados(float X[N][P], float Y[N]){
+void iniciar_parametros(double B[P+1], double valor_inicial){
+  for(int i=0;i<P+1;i++)
+    B[i]=valor_inicial;
+}
+void iniciar_dados_de_treino(double X[N][P], double Y[N]){
     
     FILE *fp = fopen("Cardiovascular_Disease_Dataset.csv", "r");
     if (fp == NULL) {
@@ -50,7 +55,7 @@ void iniciar_dados(float X[N][P], float Y[N]){
 
 
 }
-void combinacao_linear(float X[N][P],float B[P+1],float Z[N]){
+void combinacao_linear(double X[N][P],double B[P+1],double Z[N]){
     for(int i=0;i<N;i++){
         Z[i]=B[0];
         for(int j=0;j<P;j++){
@@ -60,80 +65,38 @@ void combinacao_linear(float X[N][P],float B[P+1],float Z[N]){
         }
     }
 }
-void sigmoide(float p[N],float Z[N]){
+void sigmoide(double p[N],double Z[N]){
     for(int i=0;i<N;i++){
         p[i]=1.0/(1.0+expf(-Z[i]));
 
     }
 }
-void gradiente(float gradJ_B[P+1],float p[N],float Y[N],float X[N][P]){
-    gradJ_B[0]=0.0;
-    long double grad=0.0;
-    for(int i=0;i<N;i++){
-        grad+=(p[i]-Y[i])*1;
-        /*if(grad>1000000000){
-                gradJ_B[0]+=grad/N;
-                grad=0.0;
-            }*/
+void gradiente(double gradJ_B[P+1],double p[N],double Y[N],double X[N][P]){
+   double grad[P+1];
+    for (int j = 0; j <= P; ++j) grad[j] = 0.0;
+
+    for (int i = 0; i < N; ++i) {
+        double err = p[i] - Y[i];
+        grad[0] += err;                      // bias
+        for (int j = 0; j < P; ++j)
+            grad[j+1] += err * X[i][j];     // itera j contiguamente
     }
-    gradJ_B[0]=grad/N;
-    for(int j=0;j<P;j++){
-        gradJ_B[j+1]=0.0;
-        grad=0.0;
-        for(int i=0;i<N;i++){
-            
-        
-            grad+=(p[i]-Y[i])*X[i][j];
-            //printf("gradAcumlando: %Lf\n", grad);
-            /*if(grad>100000000){
-               //usleep(1000000);
-                gradJ_B[j+1]+=grad/N;
-                grad=0.0;
-            }*/
-            
-        }
-        gradJ_B[j+1]=grad/N;
-        //printf("grad: %.2f\n", gradJ_B[j+1]);
-    }
+
+    for (int j = 0; j <= P; ++j)
+        gradJ_B[j] = grad[j] / (double)N;
 }
-void atualizar_parametros(float B[P+1],float gradJ_B[P+1], float alfa){
+
+void atualizar_parametros(double B[P+1],double gradJ_B[P+1], double alfa){
     for( int j=0;j<P+1;j++){
         B[j]-=alfa*gradJ_B[j];
     }
 }
-void imprimir_parametros(float B[P+1]){
+void imprimir_parametros(double B[P+1]){
     for( int j=0;j<P+1;j++){
         printf("Parametro %d: %.2f\n", j,B[j]);
     }
 }
-void imprimir_resultados(float X[N][P],float B[P+1],float Y[N]){
-     for(int i=0;i<N;i++){
-          float Ycalculado=B[0];
-          for(int j=0;j<P;j++){
-            Ycalculado+=B[j+1]*X[i][j];
-          }
-          printf("Ycalculado: %.2f Yreal: %.2f\n", Ycalculado,Y[i]);
-
-     }
-
-}
-void imprimir_novos_resultados(float X[Nnew][P],float B[P+1],float Y[Nnew]){
-    int acertos=0;
-     for(int i=0;i<Nnew;i++){
-          float Zcalculado=B[0];
-          for(int j=0;j<P;j++){
-            Zcalculado+=B[j+1]*X[i][j];
-          }
-          float Ycalculado=1.0/(1.0+expf(-Zcalculado));
-          printf("Ycalculado: %.2f Yreal: %.2f\n", Ycalculado,Y[i]);
-          if(fabs(Ycalculado-Y[i])<0.1)
-          acertos++;
-
-     }
-     printf("Acuracia: %.2f\n", (double)acertos/Nnew);
-
-}
-void testar_dados_novos(float X[Nnew][P], float Y[Nnew]){
+void iniciar_dados_de_teste(double X[Nnew][P], double Y[Nnew]){
     
     FILE *fp = fopen("Cardiovascular_Disease_Dataset.csv", "r");
     if (fp == NULL) {
@@ -171,40 +134,54 @@ void testar_dados_novos(float X[Nnew][P], float Y[Nnew]){
     }
 
     fclose(fp);
+}
+void imprimir_resultados(double X[Nnew][P],double B[P+1],double Y[Nnew]){
+    printf("Resultados de teste:\n");
+    int acertos=0;
+     for(int i=0;i<Nnew;i++){
+          double Zcalculado=B[0];
+          for(int j=0;j<P;j++){
+            Zcalculado+=B[j+1]*X[i][j];
+          }
+          double Ycalculado=1.0/(1.0+expf(-Zcalculado));
+          printf("Ycalculado: %.2f Yreal: %.2f\n", Ycalculado,Y[i]);
+          if(fabs(Ycalculado-Y[i])<0.1)
+          acertos++;
 
-    
-
-
-
+     }
+     printf("Acuracia: %.2f\n", (double)acertos/Nnew);
 
 }
 
-
 int main(){
- float X[N][P];
- float Y[N];
- float Z[N];
- float p[N];
- float B[P+1];
- for(int i=0;i<P+1;i++)
- B[i]=0.1;
- float gradJ_B[P+1]={0};
- iniciar_dados(X,Y);
- for (int i=0;i<1000000;i++){
+ double X[N][P];
+ double Y[N];
+ double Z[N];
+ double p[N];
+ double B[P+1];
+ double gradJ_B[P+1]={0};
+ iniciar_parametros(B,0.1);//
+ iniciar_dados_de_treino(X,Y);//
+ struct timeval start, end;
+ gettimeofday(&start, NULL);
+ for (int i=0;i<500000;i++){//
     
     combinacao_linear(X,B,Z);
     sigmoide(p,Z);
     gradiente(gradJ_B,p,Y,X);
-    float alfa=0.01;
-    atualizar_parametros(B,gradJ_B,alfa);
+    double alfa=0.01;
+    atualizar_parametros(B,gradJ_B,alfa);//
     
  }
-imprimir_parametros(B);
-//imprimir_resultados(X,B,Y);
-float Xteste[Nnew][P];
-float Yteste[Nnew];
-testar_dados_novos(Xteste,Yteste);
-printf("Resultados de teste:\n");
-imprimir_novos_resultados(Xteste,B,Yteste);
+gettimeofday(&end, NULL);
+imprimir_parametros(B);//
+double Xteste[Nnew][P];
+double Yteste[Nnew];
+iniciar_dados_de_teste(Xteste,Yteste);//
+imprimir_resultados(Xteste,B,Yteste);//
+long segundos = end.tv_sec - start.tv_sec;
+long micros = end.tv_usec - start.tv_usec;
+double tempo_total = segundos + micros / 1e6;
+printf("Tempo: %.6f segundos\n", tempo_total);
 return 0;
 }
