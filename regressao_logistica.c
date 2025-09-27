@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <omp.h>
 #define N 900
 #define P 12
 #define Nnew 70
@@ -22,7 +23,7 @@ void iniciar_dados_de_treino(double X[N][P], double Y[N]){
     int i = 0;
 
     // ler a primeira linha (cabeçalho) e descartar
-    fgets(linha, sizeof(linha), fp);
+    char *descarte=fgets(linha, sizeof(linha), fp);
 
     // ler até 1000 linhas ou até acabar arquivo
     while (i < N && fgets(linha, sizeof(linha), fp)) {
@@ -67,7 +68,7 @@ void combinacao_linear(double X[N][P],double B[P+1],double Z[N]){
 }
 void sigmoide(double p[N],double Z[N]){
     for(int i=0;i<N;i++){
-        p[i]=1.0/(1.0+expf(-Z[i]));
+        p[i]=1.0/(1.0+exp(-Z[i]));
 
     }
 }
@@ -107,8 +108,9 @@ void iniciar_dados_de_teste(double X[Nnew][P], double Y[Nnew]){
     int i = 0;
 
     // ler a primeira linha (cabeçalho) e descartar
+    char *descarte;
     for(int i=0;i<N+10;i++)
-    fgets(linha, sizeof(linha), fp);
+    descarte=fgets(linha, sizeof(linha), fp);
 
     // ler até 1000 linhas ou até acabar arquivo
     while (i < Nnew && fgets(linha, sizeof(linha), fp)) {
@@ -145,7 +147,7 @@ void imprimir_resultados(double X[Nnew][P],double B[P+1],double Y[Nnew]){
           }
           double Ycalculado=1.0/(1.0+expf(-Zcalculado));
           printf("Ycalculado: %.2f Yreal: %.2f\n", Ycalculado,Y[i]);
-          if(fabs(Ycalculado-Y[i])<0.1)
+          if(fabs(Ycalculado-Y[i])<0.5)
           acertos++;
 
      }
@@ -153,7 +155,12 @@ void imprimir_resultados(double X[Nnew][P],double B[P+1],double Y[Nnew]){
 
 }
 
-int main(){
+int main(int argc, char *argv[]){
+if(argc != 2){
+    printf("Uso: %s <num_iteracoes>\n", argv[0]);
+    return 1;
+ }
+ int max_iter = atoi(argv[1]);
  double X[N][P];
  double Y[N];
  double Z[N];
@@ -162,26 +169,26 @@ int main(){
  double gradJ_B[P+1]={0};
  iniciar_parametros(B,0.1);//
  iniciar_dados_de_treino(X,Y);//
- struct timeval start, end;
- gettimeofday(&start, NULL);
- for (int i=0;i<500000;i++){//
+ 
+ double start, end;
+start = omp_get_wtime();
+ for (int i=0;i<max_iter;i++){//
     
     combinacao_linear(X,B,Z);
     sigmoide(p,Z);
     gradiente(gradJ_B,p,Y,X);
-    double alfa=0.01;
+    double alfa=0.1;
     atualizar_parametros(B,gradJ_B,alfa);//
     
  }
-gettimeofday(&end, NULL);
+end = omp_get_wtime();
 imprimir_parametros(B);//
 double Xteste[Nnew][P];
 double Yteste[Nnew];
 iniciar_dados_de_teste(Xteste,Yteste);//
 imprimir_resultados(Xteste,B,Yteste);//
-long segundos = end.tv_sec - start.tv_sec;
-long micros = end.tv_usec - start.tv_usec;
-double tempo_total = segundos + micros / 1e6;
+
+double tempo_total = end-start;
 printf("Tempo: %.6f segundos\n", tempo_total);
 return 0;
 }

@@ -23,7 +23,7 @@ void iniciar_dados_de_treino(double X[N][P], double Y[N]) {
     int i = 0;
 
     // ler a primeira linha (cabeçalho) e descartar
-    fgets(linha, sizeof(linha), fp);
+    char *descarte=fgets(linha, sizeof(linha), fp);
 
     // ler até 1000 linhas ou até acabar arquivo
     while (i < N && fgets(linha, sizeof(linha), fp)) {
@@ -103,8 +103,9 @@ void iniciar_dados_de_teste(double X[Nnew][P], double Y[Nnew]) {
     int i = 0;
 
     // ler a primeira linha (cabeçalho) e descartar
+    char *descarte;
     for (int i = 0;i < N + 10;i++)
-        fgets(linha, sizeof(linha), fp);
+    descarte=fgets(linha, sizeof(linha), fp);
 
     // ler até 1000 linhas ou até acabar arquivo
     while (i < Nnew && fgets(linha, sizeof(linha), fp)) {
@@ -150,7 +151,14 @@ void imprimir_resultados(double X[Nnew][P], double B[P + 1], double Y[Nnew]) {
 
 }
 
-int main() {
+int main(int argc, char *argv[]){
+if(argc != 3){
+    printf("Uso: %s <num_iteracoes> <num_threads>\n", argv[0]);
+    return 1;
+ }
+ int max_iter = atoi(argv[1]);
+ int num_threads = atoi(argv[2]);
+ omp_set_num_threads(num_threads);
     double X[N][P];
     double Y[N];
     double Z[N];
@@ -161,8 +169,8 @@ int main() {
     iniciar_dados_de_treino(X, Y);//
 
 
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
+    double start, end;
+    start = omp_get_wtime();
     
 /* 
     // define padding stride (maior que P+1 para evitar false sharing)
@@ -186,7 +194,7 @@ const int stride = 16; // >= P+1 (13), 16 doubles = 128 bytes, bom alinhamento
     #pragma omp barrier
     double *loc = local_all + (size_t)tid * stride;
 
-    for (int iter = 0; iter < 500000; ++iter) {
+    for (int iter = 0; iter < max_iter ; ++iter) {
 
         // zera buffer local (por thread)
         for (int j = 0; j < P+1; ++j) loc[j] = 0.0;
@@ -224,7 +232,7 @@ const int stride = 16; // >= P+1 (13), 16 doubles = 128 bytes, bom alinhamento
 }//*/
 
     ///*
-    #pragma omp parallel default(none) shared(X,Y,Z,p,B,gradJ_B)
+    #pragma omp parallel default(none) shared(X,Y,Z,p,B,gradJ_B,max_iter)
     {
         int tid = omp_get_thread_num();
         int nthreads = omp_get_num_threads();
@@ -234,7 +242,7 @@ const int stride = 16; // >= P+1 (13), 16 doubles = 128 bytes, bom alinhamento
 
         double* loc = local_all + tid * (P + 1);
 
-        for (int i = 0; i < 500000; ++i) {
+        for (int i = 0; i < max_iter ; ++i) {
             combinacao_linear(X, B, Z);
             sigmoide(p, Z);
             gradiente(p, Y, X, loc);
@@ -255,15 +263,13 @@ const int stride = 16; // >= P+1 (13), 16 doubles = 128 bytes, bom alinhamento
         #pragma omp single
         free(local_all);
     }//*/
-    gettimeofday(&end, NULL);
+    end = omp_get_wtime();
     imprimir_parametros(B);//
     double Xteste[Nnew][P];
     double Yteste[Nnew];
     iniciar_dados_de_teste(Xteste, Yteste);//
     imprimir_resultados(Xteste, B, Yteste);//
-    long segundos = end.tv_sec - start.tv_sec;
-    long micros = end.tv_usec - start.tv_usec;
-    double tempo_total = segundos + micros / 1e6;
+    double tempo_total = end-start;
     printf("Tempo: %.6f segundos\n", tempo_total);
     return 0;
 }
